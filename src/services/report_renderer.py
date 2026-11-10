@@ -92,7 +92,6 @@ from src.utils.report_display import (
     etf_action_label,
     etf_sector_label,
     is_etf_result,
-    strip_emoji,
 )
 
 
@@ -269,7 +268,7 @@ def render(
             autoescape=select_autoescape(default=False),
         )
         template = env.get_template(template_name)
-        return strip_emoji(template.render(**context))
+        return template.render(**context)
     except Exception as e:
         logger.warning("Report render failed for %s: %s", template_name, e)
         return None

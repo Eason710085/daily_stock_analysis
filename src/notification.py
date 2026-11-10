@@ -1113,7 +1113,7 @@ class NotificationService(
             f"*{labels['generated_at_label']}：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*",
         ])
 
-        return strip_emoji("\n".join(report_lines))
+        return "\n".join(report_lines)
 
     @staticmethod
     def _escape_md(name: str) -> str:
@@ -1679,7 +1679,7 @@ class NotificationService(
         if models:
             report_lines.append(f"*{labels['analysis_model_label']}：{', '.join(models)}*")
 
-        return strip_emoji("\n".join(report_lines))
+        return "\n".join(report_lines)
 
     def generate_wechat_dashboard(self, results: List[AnalysisResult]) -> str:
         """
@@ -1879,7 +1879,7 @@ class NotificationService(
         if models:
             lines.append(f"*{labels['analysis_model_label']}: {', '.join(models)}*")
 
-        content = strip_emoji("\n".join(lines))
+        content = "\n".join(lines)
 
         return content
 
@@ -1954,7 +1954,7 @@ class NotificationService(
             f"*{labels['details_report_hint']} reports/report_{report_date.replace('-', '')}.md*"
         ])
 
-        content = strip_emoji("\n".join(lines))
+        content = "\n".join(lines)
 
         return content
 
@@ -2021,7 +2021,7 @@ class NotificationService(
         models = self._collect_models_used(results)
         if models:
             lines.append(f"*{labels['analysis_model_label']}: {', '.join(models)}*")
-        return strip_emoji("\n".join(lines))
+        return "\n".join(lines)
 
     def generate_single_stock_report(self, result: AnalysisResult) -> str:
         """
