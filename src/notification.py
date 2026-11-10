@@ -1277,7 +1277,8 @@ class NotificationService(
 
         current = price.get('current_price') or snap.get('price') or snap.get('close') or 'N/A'
         change = snap.get('pct_chg') or price.get('change_pct') or None
-        change_text = f"{change}%" if change not in (None, '') else 'N/A'
+        change_str = str(change).strip() if change not in (None, '') else ''
+        change_text = change_str if change_str.endswith('%') else (f"{change_str}%" if change_str else 'N/A')
         advice = etf_action_label(self._get_display_operation_advice(result, report_language))
         summary = core.get('one_sentence') or result.analysis_summary or 'N/A'
 
