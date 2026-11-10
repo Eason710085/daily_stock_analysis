@@ -88,6 +88,11 @@ def _resolve_templates_dir() -> Path:
 
 
 from src.services.empty_news import empty_news_disclosure
+from src.utils.report_display import (
+    etf_action_label,
+    etf_sector_label,
+    is_etf_result,
+)
 
 
 def render(
@@ -170,6 +175,9 @@ def render(
             "stock_name": _escape_md(rn),
             "localized_operation_advice": display_advice,
             "localized_trend_prediction": localize_trend_prediction(r.trend_prediction, report_language),
+            "is_etf": is_etf_result(r),
+            "etf_sector": etf_sector_label(rn),
+            "etf_action": etf_action_label(display_advice),
         })
 
     display_buckets = [

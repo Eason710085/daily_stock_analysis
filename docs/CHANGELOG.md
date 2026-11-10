@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [改进] 报告输出面向手机精简：ETF/指数仅展示代表板块、趋势评分、加仓/减仓/继续持有建议与一句话结论；个股新增关键价位表（现价/支撑位/压力位/止损位/目标位/操作建议）；报告渲染统一移除 emoji，企业微信与飞书版本同步调整。
+- [改进] 新增 `REPORT_COMPACT_MOBILE` 开关：开启后个股正文压缩为关键价位表 + 风险/催化要点（约 500 字符/只），ETF 保持紧凑表；默认关闭，GitHub Actions 日报默认开启以适配飞书/企微手机阅读。
 - [修复] Agent 工具消息内容与工具调用参数序列化不再透传 NaN/±Infinity：`LLMToolAdapter._convert_messages` 序列化前将非有限浮点递归归一化为 `null`，并以 `allow_nan=False` 输出严格 RFC 8259 JSON，避免 LiteLLM 以 `"NaN" is not valid JSON` 拒绝请求（#2471）。
 
 - [修复] 启动日志不再对 `--stocks` / `--portfolio` / `--no-notify` 已覆盖的配置项告警；单一日线数据源失败（含 Eastmoney 股票与 ETF 请求）降为 WARNING，普通股票及 A 股指数全部日线数据源失败仍为 ERROR；LLM 返回与调试日志显示实际响应模型（含流式响应），依据实际调用路由标注回退，避免将别名、供应商前缀和日期版本差异误报为回退

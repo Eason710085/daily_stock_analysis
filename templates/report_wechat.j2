@@ -21,6 +21,18 @@
 {% set battle = dashboard.get('battle_plan') or {} %}
 {% set intel = dashboard.get('intelligence') or {} %}
 
+{% if e.is_etf %}
+### {{ e.stock_name }} ({{ result.code }})
+
+| 项目 | 内容 |
+| --- | --- |
+| 代表板块 | {{ e.etf_sector }} |
+| 趋势 / 评分 | {{ localize_trend_prediction(result.trend_prediction, report_language) }} · {{ result.sentiment_score }}分 |
+| 操作建议 | {{ e.etf_action }} |
+| 结论 | {{ core.get('one_sentence', result.analysis_summary) }} |
+
+---
+{% else %}
 ### {{ e.signal_emoji }} **{{ e.signal_text }}** | {{ e.stock_name }}({{ result.code }})
 
 {% set one_sentence = core.get('one_sentence', result.analysis_summary) if core else result.analysis_summary %}
@@ -95,6 +107,7 @@
 {% endif %}
 
 ---
+{% endif %}
 {% endfor %}
 {% endif %}
 

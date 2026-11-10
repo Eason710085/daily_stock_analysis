@@ -61,6 +61,12 @@ from src.schemas.decision_action import (
     display_operation_advice_for_result,
 )
 from bot.models import BotMessage
+from src.utils.report_display import (
+    etf_action_label,
+    etf_sector_label,
+    is_etf_result,
+    strip_emoji,
+)
 from src.utils.sanitize import sanitize_diagnostic_text
 from src.formatters import strip_hidden_markdown_metadata
 from src.utils.data_processing import (
@@ -1252,6 +1258,128 @@ class NotificationService(
             signal_tag,
         )
 
+    @staticmethod
+    def _truncate_text(value: Any, limit: int = 80) -> str:
+        text = str(value or "").strip()
+        return text if len(text) <= limit else text[: limit - 1] + "…"
+
+    def _render_compact_stock_block(self, result: AnalysisResult, stock_name: str,
+                                    dashboard: Dict, labels: Dict, report_language: str) -> List[str]:
+        """Mobile-first stock block: key levels table plus short risk/catalyst notes."""
+        dash = dashboard or {}
+        core = dash.get('core_conclusion') or {}
+        data_persp = dash.get('data_perspective') or {}
+        price = data_persp.get('price_position') or {}
+        intel = dash.get('intelligence') or {}
+        battle = dash.get('battle_plan') or {}
+        sniper = battle.get('sniper_points') or {}
+        snap = getattr(result, 'market_snapshot', None) or {}
+
+        current = price.get('current_price') or snap.get('price') or snap.get('close') or 'N/A'
+        change = snap.get('pct_chg') or price.get('change_pct') or None
+        change_str = str(change).strip() if change not in (None, '') else ''
+        change_text = change_str if change_str.endswith('%') else (f"{change_str}%" if change_str else 'N/A')
+        advice = etf_action_label(self._get_display_operation_advice(result, report_language))
+        summary = core.get('one_sentence') or result.analysis_summary or 'N/A'
+
+        lines = [
+            f"## {stock_name} ({result.code})",
+            "",
+            "| 项目 | 内容 |",
+            "| --- | --- |",
+            f"| 现价 / 涨跌幅 | {current} / {change_text} |",
+            f"| 趋势 / 评分 | {localize_trend_prediction(result.trend_prediction, report_language)} · {result.sentiment_score}分 |",
+            f"| 操作建议 | {advice} |",
+            f"| 结论 | {self._truncate_text(summary, 90)} |",
+            "",
+        ]
+
+        key_rows = []
+        if price.get('support_level') not in (None, '', 'N/A'):
+            key_rows.append(('支撑位', price.get('support_level')))
+        if price.get('resistance_level') not in (None, '', 'N/A'):
+            key_rows.append(('压力位', price.get('resistance_level')))
+        stop_loss = self._clean_sniper_value(sniper.get('stop_loss'))
+        take_profit = self._clean_sniper_value(sniper.get('take_profit'))
+        if stop_loss and stop_loss != 'N/A':
+            key_rows.append(('止损位', stop_loss))
+        if take_profit and take_profit != 'N/A':
+            key_rows.append(('目标位', take_profit))
+        if key_rows:
+            lines.extend(["| 关键价位 | 数值 |", "| --- | --- |"])
+            for label, value in key_rows:
+                lines.append(f"| {label} | {self._truncate_text(value, 70)} |")
+            lines.append("")
+
+        risks = [r for r in (intel.get('risk_alerts') or []) if r][:2]
+        catalysts = [c for c in (intel.get('positive_catalysts') or []) if c][:2]
+        if risks:
+            lines.append("**主要风险**")
+            lines.extend(f"- {self._truncate_text(item, 70)}" for item in risks)
+            lines.append("")
+        if catalysts:
+            lines.append("**潜在催化**")
+            lines.extend(f"- {self._truncate_text(item, 70)}" for item in catalysts)
+            lines.append("")
+
+        volume_bits = []
+        if snap.get('volume_ratio') not in (None, '', 'N/A'):
+            volume_bits.append(f"量比 {snap.get('volume_ratio')}")
+        if snap.get('turnover_rate') not in (None, '', 'N/A'):
+            volume_bits.append(f"换手 {snap.get('turnover_rate')}")
+        if volume_bits:
+            lines.append(" | ".join(volume_bits))
+            lines.append("")
+
+        return lines
+
+    def _render_compact_etf_block(self, result: AnalysisResult, stock_name: str,
+                                  dashboard: Dict, labels: Dict, report_language: str) -> List[str]:
+        """Compact fund block: tracked sector, trend, fund action, one-line conclusion."""
+        core = (dashboard or {}).get('core_conclusion') or {}
+        summary = core.get('one_sentence') or result.analysis_summary or 'N/A'
+        advice = self._get_display_operation_advice(result, report_language)
+        lines = [
+            f"## {stock_name} ({result.code})",
+            "",
+            "| 项目 | 内容 |",
+            "| --- | --- |",
+            f"| 代表板块 | {etf_sector_label(stock_name)} |",
+            f"| 趋势 / 评分 | {localize_trend_prediction(result.trend_prediction, report_language)} · {result.sentiment_score}分 |",
+            f"| 操作建议 | {etf_action_label(advice)} |",
+            f"| 结论 | {summary} |",
+        ]
+        return lines
+
+    def _append_key_levels_block(self, report_lines: List[str], result: AnalysisResult,
+                                 dashboard: Dict, labels: Dict, report_language: str) -> None:
+        """Two-column key price table for mobile reading."""
+        data_persp = (dashboard or {}).get('data_perspective') or {}
+        price = data_persp.get('price_position') or {}
+        battle = (dashboard or {}).get('battle_plan') or {}
+        sniper = battle.get('sniper_points') or {}
+        rows: List[tuple] = []
+        current = price.get('current_price')
+        if current not in (None, '', 'N/A'):
+            rows.append(('现价', current))
+        support = price.get('support_level')
+        resistance = price.get('resistance_level')
+        if support not in (None, '', 'N/A'):
+            rows.append(('支撑位', support))
+        if resistance not in (None, '', 'N/A'):
+            rows.append(('压力位', resistance))
+        stop_loss = self._clean_sniper_value(sniper.get('stop_loss'))
+        take_profit = self._clean_sniper_value(sniper.get('take_profit'))
+        if stop_loss and stop_loss != 'N/A':
+            rows.append(('止损位', stop_loss))
+        if take_profit and take_profit != 'N/A':
+            rows.append(('目标位', take_profit))
+        rows.append(('操作建议', etf_action_label(self._get_display_operation_advice(result, report_language))))
+        report_lines.extend(["| 关键价位 | 数值 |", "| --- | --- |"])
+        for label, value in rows:
+            report_lines.append(f"| {label} | {value} |")
+        report_lines.append("")
+
     def generate_dashboard_report(
         self,
         results: List[AnalysisResult],
@@ -1352,6 +1480,18 @@ class NotificationService(
                 # 股票名称（优先使用 dashboard 或 result 中的名称，转义 *ST 等特殊字符）
                 stock_name = self._get_display_name(result, report_language)
 
+                if is_etf_result(result):
+                    report_lines.extend(self._render_compact_etf_block(
+                        result, stock_name, dashboard, labels, report_language))
+                    report_lines.extend(["", "---", ""])
+                    continue
+
+                if bool(getattr(get_config(), 'report_compact_mobile', False)):
+                    report_lines.extend(self._render_compact_stock_block(
+                        result, stock_name, dashboard, labels, report_language))
+                    report_lines.extend(["", "---", ""])
+                    continue
+
                 report_lines.extend([
                     f"## {signal_emoji} {stock_name} ({result.code})",
                     "",
@@ -1415,6 +1555,7 @@ class NotificationService(
                         "",
                     ])
 
+                self._append_key_levels_block(report_lines, result, dashboard, labels, report_language)
                 self._append_market_snapshot(report_lines, result)
 
                 # ========== 数据透视 ==========
@@ -1689,6 +1830,13 @@ class NotificationService(
 
                 # 股票名称
                 stock_name = self._get_display_name(result, report_language)
+
+                if is_etf_result(result):
+                    lines.extend(self._render_compact_etf_block(
+                        result, stock_name, dashboard, labels, report_language))
+                    lines.append("")
+                    lines.append("---")
+                    continue
 
                 # 标题行：信号等级 + 股票名称
                 lines.append(f"### {signal_emoji} **{signal_text}** | {stock_name}({result.code})")
@@ -2877,6 +3025,7 @@ class NotificationService(
         Returns:
             是否至少有一个渠道发送成功
         """
+        content = strip_emoji(content)
         result = self.send_with_results(
             content,
             email_stock_codes=email_stock_codes,
@@ -2916,6 +3065,7 @@ class NotificationService(
 
         filepath = reports_dir / filename
 
+        content = strip_emoji(content)
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(content)
 
