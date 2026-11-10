@@ -232,7 +232,9 @@ class FeishuSender:
         if client is None:
             return False
 
-        formatted = format_feishu_markdown(content)
+        formatted = format_feishu_markdown(
+            content, preserve_tables=True, strip_emoji_output=True
+        )
         content_bytes = len(formatted.encode("utf-8"))
 
         if content_bytes > self._feishu_max_bytes:
@@ -538,7 +540,9 @@ class FeishuSender:
 
     def _send_via_webhook(self, content: str, *, timeout_seconds: Optional[float] = None) -> bool:
         """Legacy webhook send path."""
-        formatted_content = format_feishu_markdown(content)
+        formatted_content = format_feishu_markdown(
+            content, preserve_tables=True, strip_emoji_output=True
+        )
 
         max_bytes = self._feishu_max_bytes
         keyword_overhead = len(self._get_keyword_prefix().encode("utf-8"))

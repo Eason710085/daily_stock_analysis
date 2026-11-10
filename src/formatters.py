@@ -766,7 +766,12 @@ def _format_feishu_markdown_unprotected(content: str) -> str:
     return "\n".join(lines).strip()
 
 
-def format_feishu_markdown(content: str) -> str:
+def format_feishu_markdown(
+    content: str,
+    *,
+    preserve_tables: bool = False,
+    strip_emoji_output: bool = False,
+) -> str:
     """
     将通用 Markdown 转换为飞书 lark_md 更友好的格式
 
@@ -828,9 +833,13 @@ def format_feishu_markdown(content: str) -> str:
     for raw_line in content.splitlines():
         line = raw_line.rstrip()
 
-        # 处理表格行
+        # 处理表格行：preserve_tables=True 时保留原始 Markdown 表格，
+        # 交由支持表格的飞书富文本渲染（否则按旧逻辑转成条目列表）。
         if line.strip().startswith('|'):
-            table_buffer.append(line)
+            if preserve_tables:
+                lines.append(line)
+            else:
+                table_buffer.append(line)
             continue
 
         # 刷新表格缓冲区
@@ -859,7 +868,12 @@ def format_feishu_markdown(content: str) -> str:
     if table_buffer:
         _flush_table_rows(table_buffer, lines)
 
-    return "\n".join(lines).strip()
+    result = "\n".join(lines).strip()
+    if strip_emoji_output:
+        from src.utils.report_display import strip_emoji
+
+        return strip_emoji(result)
+    return result
 
 
 def _format_telegram_markdown_unprotected(content: str) -> str:
