@@ -117,6 +117,7 @@ daily_stock_analysis/
 |------------|------|:----:|
 | `SINGLE_STOCK_NOTIFY` | 单股推送模式：设为 `true` 则每分析完一只股票立即推送 | 可选 |
 | `REPORT_TYPE` | 报告类型：`simple`(精简)、`full`(完整)、`brief`(3-5句概括)，Docker环境推荐设为 `full` | 可选 |
+| `REPORT_COMPACT_MOBILE` | 手机紧凑报告：ETF 只输出板块/建议，个股改为关键价位表，适合飞书/企业微信推送（默认 false，Actions 工作流默认 true） | 可选 |
 
 > 报告展示约定：ETF/指数标的只输出「代表板块、趋势评分、加仓/减仓/继续持有建议、一句话结论」；个股输出关键价位表（现价、支撑位、压力位、止损位、目标位、操作建议）；所有推送与保存的报告不包含 emoji。
 | `REPORT_LANGUAGE` | 报告与 Agent Chat 的默认输出语言：`zh`(默认中文) / `en`(英文) / `ko`(韩文)；会同步影响 Prompt、模板、通知 fallback、Web 报告页固定文案，以及未显式传入 `context.report_language` 的问股回复。`ko` 复用英文结构骨架并通过输出语言指令约束模型用韩文输出，通知按报告语言渲染本地化标签。仓库自带 `00-daily-analysis.yml` 已显式映射该变量，直接在 Actions Secrets/Variables 中配置即可生效 | 可选 |
