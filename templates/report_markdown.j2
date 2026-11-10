@@ -28,6 +28,19 @@
 {% set battle = dashboard.get('battle_plan') or {} %}
 {% set data_persp = dashboard.get('data_perspective') or {} %}
 
+{% if e.is_etf %}
+## {{ e.stock_name }} ({{ result.code }})
+
+| 项目 | 内容 |
+| --- | --- |
+| 代表板块 | {{ e.etf_sector }} |
+| 趋势 / 评分 | {{ localize_trend_prediction(result.trend_prediction, report_language) }} · {{ result.sentiment_score }}分 |
+| 操作建议 | {{ e.etf_action }} |
+| 结论 | {{ core.get('one_sentence', result.analysis_summary) }} |
+
+---
+
+{% else %}
 ## {{ e.signal_emoji }} {{ e.stock_name }} ({{ result.code }})
 
 {% if e.empty_news_disclosure %}
@@ -78,6 +91,17 @@
 | 🆕 **{{ labels.no_position_label }}** | {{ pos_advice.get('no_position', e.localized_operation_advice) }} |
 | 💼 **{{ labels.has_position_label }}** | {{ pos_advice.get('has_position', labels.continue_holding) }} |
 {% endif %}
+
+{% set kp = data_persp.get('price_position', {}) %}
+{% set sniper = battle.get('sniper_points', {}) %}
+| 关键价位 | 数值 |
+| --- | --- |
+| 现价 | {{ kp.get('current_price', 'N/A') }} |
+| 支撑位 | {{ kp.get('support_level', 'N/A') }} |
+| 压力位 | {{ kp.get('resistance_level', 'N/A') }} |
+| 止损位 | {{ clean_sniper(sniper.get('stop_loss')) }} |
+| 目标位 | {{ clean_sniper(sniper.get('take_profit')) }} |
+| 操作建议 | {{ e.etf_action }} |
 
 {{ market_snapshot(result) }}
 
@@ -248,6 +272,7 @@
 {% endif %}
 
 ---
+{% endif %}
 {% endfor %}
 {% endif %}
 
