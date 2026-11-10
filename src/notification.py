@@ -989,7 +989,6 @@ class NotificationService(
                     f"**Confidence：{confidence_stars}**",
                     "",
                 ])
-                self._append_key_levels_block(report_lines, result, dashboard, labels, report_language)
                 self._append_market_snapshot(report_lines, result)
 
                 # 核心看点
