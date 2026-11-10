@@ -10,6 +10,7 @@ import base64
 import hashlib
 import hmac
 import json
+import re
 import logging
 import os
 import tempfile
@@ -134,19 +135,114 @@ class FeishuSender:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _build_card_body(content: str) -> dict:
-        """Build a Feishu interactive-card body (without the ``msg_type`` wrapper)."""
+    def _parse_card_table_row(line: str) -> list:
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        return cells
+
+    @classmethod
+    def _build_card_body(cls, content: str) -> dict:
+        """Build a Feishu interactive-card body (without the ``msg_type`` wrapper).
+
+        Feishu lark_md does not render Markdown pipe tables, so 2-column
+        key/value tables are emitted as ``column_set`` rows (visually a table).
+        Other text is emitted as normal lark_md div blocks.
+        """
+        elements = []
+        text_buffer = []
+        table_buffer = []
+
+        def flush_text():
+            if not text_buffer:
+                return
+            text = "\n".join(text_buffer).strip()
+            text_buffer.clear()
+            if text:
+                elements.append({
+                    "tag": "div",
+                    "text": {"tag": "lark_md", "content": text},
+                })
+
+        def flush_table():
+            if not table_buffer:
+                return
+            rows = []
+            for raw in table_buffer:
+                if re.match(r"^\s*\|?\s*[:-]+\s*(\|\s*[:-]+\s*)+\|?\s*$", raw):
+                    continue
+                cells = cls._parse_card_table_row(raw)
+                if cells:
+                    rows.append(cells)
+            table_buffer.clear()
+            if not rows:
+                return
+            header = rows[0]
+            data_rows = rows[1:] if len(rows) > 1 else rows
+            for row in data_rows:
+                if not any(cell for cell in row):
+                    continue
+                if len(header) == 2 and len(row) >= 2:
+                    columns = [
+                        {
+                            "tag": "column",
+                            "width": "weighted",
+                            "weight": 1,
+                            "vertical_align": "top",
+                            "elements": [{
+                                "tag": "div",
+                                "text": {"tag": "lark_md", "content": f"**{row[0]}**"},
+                            }],
+                        },
+                        {
+                            "tag": "column",
+                            "width": "weighted",
+                            "weight": 2,
+                            "vertical_align": "top",
+                            "elements": [{
+                                "tag": "div",
+                                "text": {"tag": "lark_md", "content": row[1]},
+                            }],
+                        },
+                    ]
+                else:
+                    # 3+ columns: emit one column per cell
+                    columns = []
+                    for idx, cell in enumerate(row):
+                        columns.append({
+                            "tag": "column",
+                            "width": "weighted",
+                            "weight": 1,
+                            "vertical_align": "top",
+                            "elements": [{
+                                "tag": "div",
+                                "text": {"tag": "lark_md", "content": cell or " "},
+                            }],
+                        })
+                elements.append({
+                    "tag": "column_set",
+                    "flex_mode": "none",
+                    "background_style": "default",
+                    "columns": columns,
+                })
+
+        for raw_line in content.splitlines():
+            line = raw_line.rstrip()
+            if line.strip().startswith("|"):
+                table_buffer.append(line)
+                continue
+            flush_table()
+            text_buffer.append(line)
+        flush_table()
+        flush_text()
+
         return {
             "config": {"wide_screen_mode": True},
             "header": {
                 "title": {"tag": "plain_text", "content": "股票智能分析报告"},
             },
-            "elements": [
-                {
-                    "tag": "div",
-                    "text": {"tag": "lark_md", "content": content},
-                }
-            ],
+            "elements": elements or [{
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": content},
+            }],
         }
 
     # ------------------------------------------------------------------
